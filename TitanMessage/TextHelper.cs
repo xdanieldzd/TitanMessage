@@ -119,7 +119,7 @@ namespace TitanMessage
 
 		private static (string Output, int Index) ControlCodeOneArgument(byte[] bytes, int idx, string description)
 		{
-			return ($"{description}{controlCodeArgSeperator}{(ushort)(bytes[idx + 3] << 8 | bytes[idx + 2]):D4}", (idx + 2));
+			return ($"{description}{controlCodeArgSeperator}{(ushort)(bytes[idx + 3] << 8 | bytes[idx + 2]):D}", (idx + 2));
 		}
 
 		// TODO: maybe clean below up a bit?
