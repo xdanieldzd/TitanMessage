@@ -44,12 +44,19 @@ namespace TitanMessage
 		}
 
 		int id;
+		bool isIgnored;
 		string original, translation, notes;
 
 		public int ID
 		{
 			get => id;
 			set => SetField(ref id, value, nameof(ID));
+		}
+
+		public bool IsIgnored
+		{
+			get => isIgnored;
+			set => SetField(ref isIgnored, value, nameof(IsIgnored));
 		}
 
 		[JsonIgnore]
