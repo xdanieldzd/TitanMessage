@@ -16,9 +16,13 @@ namespace TitanMessage
 			{ ("json", "j", "Convert binary files to JSON files", "[source path] [target path]", ArgumentHandlerBinaryToJson) },
 			{ ("binary", "b", "Convert JSON files to binary files", null, ArgumentHandlerJsonToBinary) },
 			{ ("overwrite", "o", "Allow overwriting of existing files", null, (arg) => { overwriteExistingFiles = true; }) },
+			{ ("ignore", "i", "Ignore untranslated files on binary creation", null, (arg) => { ignoreUntranslatedFiles = true; }) },
+			{ ("unattended", "u", "Run unattended, i.e. don't wait for key on exit", null, (arg) => { runUnattended = true; }) },
 		};
 
 		static bool overwriteExistingFiles = false;
+		static bool ignoreUntranslatedFiles = false;
+		static bool runUnattended = false;
 
 		static string applicationExecutable;
 
@@ -38,17 +42,30 @@ namespace TitanMessage
 				PrintUsageAndExit(-1);
 			}
 
-			foreach (var argGroup in ParseArguments(args))
+			System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
+			stopwatch.Start();
+
+			try
 			{
-				try
+				foreach (var argGroup in ParseArguments(args))
 				{
 					argumentHandlers.FirstOrDefault(x => x.Long == argGroup[0] || x.Short == argGroup[0]).Method?.Invoke(argGroup);
 				}
-				catch (Exception ex)
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Exception occured: {ex.Message}");
+				Console.WriteLine();
+				Exit(-1);
+			}
+			finally
+			{
+				if (!runUnattended)
 				{
-					Console.WriteLine($"Exception occured: {ex.Message}");
 					Console.WriteLine();
-					PrintUsageAndExit(-1);
+					Console.WriteLine("Operation completed in {0}.", GetReadableTimespan(stopwatch.Elapsed));
+					Console.WriteLine();
+					Exit(0);
 				}
 			}
 		}
@@ -78,7 +95,7 @@ namespace TitanMessage
 		{
 			if (outputFileInfo.Exists && !overwriteExistingFiles)
 			{
-				Console.WriteLine($"File {outputFileInfo.Name} already exists, skipping...");
+				Console.WriteLine($"[-] File {outputFileInfo.Name} already exists, skipping...");
 				return false;
 			}
 			else
@@ -104,7 +121,7 @@ namespace TitanMessage
 
 				if (CheckOkayToContinue(outputFileInfo))
 				{
-					Console.WriteLine($"Converting binary {binaryFile.Name} to JSON...");
+					Console.WriteLine($"[*] Converting binary {binaryFile.Name} to JSON...");
 
 					outputFileInfo.Directory.Create();
 
@@ -133,12 +150,18 @@ namespace TitanMessage
 			{
 				Translation translationFile = jsonFile.FullName.DeserializeFromFile<Translation>();
 
+				if (ignoreUntranslatedFiles && !translationFile.Entries.Any(x => string.Compare(x.Original, x.Translation) != 0))
+				{
+					Console.WriteLine($"[-] File {jsonFile.Name} has no translated entries, skipping...");
+					continue;
+				}
+
 				var relativePath = GetRelativePath(jsonFile, sourceRoot);
 				var outputFileInfo = new FileInfo(Path.Combine(targetRoot.FullName, translationFile.RelativePath));
 
 				if (CheckOkayToContinue(outputFileInfo))
 				{
-					Console.WriteLine($"Converting JSON {jsonFile.Name} to binary...");
+					Console.WriteLine($"[*] Converting JSON {jsonFile.Name} to binary...");
 
 					outputFileInfo.Directory.Create();
 
@@ -150,6 +173,20 @@ namespace TitanMessage
 					}
 				}
 			}
+		}
+
+		/* Slightly modified from https://stackoverflow.com/a/4423615 */
+		static string GetReadableTimespan(TimeSpan span)
+		{
+			string formatted = string.Format("{0}{1}{2}{3}{4}",
+			span.Duration().Days > 0 ? string.Format("{0:0} day{1}, ", span.Days, span.Days == 1 ? string.Empty : "s") : string.Empty,
+			span.Duration().Hours > 0 ? string.Format("{0:0} hour{1}, ", span.Hours, span.Hours == 1 ? string.Empty : "s") : string.Empty,
+			span.Duration().Minutes > 0 ? string.Format("{0:0} minute{1}, ", span.Minutes, span.Minutes == 1 ? string.Empty : "s") : string.Empty,
+			span.Duration().Seconds > 0 ? string.Format("{0:0} second{1}, ", span.Seconds, span.Seconds == 1 ? string.Empty : "s") : string.Empty,
+			span.Duration().Milliseconds > 0 ? string.Format("{0:0} millisecond{1}", span.Milliseconds, span.Milliseconds == 1 ? string.Empty : "s") : string.Empty);
+			if (formatted.EndsWith(", ")) formatted = formatted.Substring(0, formatted.Length - 2);
+			if (string.IsNullOrEmpty(formatted)) formatted = "0 seconds";
+			return formatted;
 		}
 
 		static void PrintUsageAndExit(int code)
@@ -167,7 +204,13 @@ namespace TitanMessage
 				if (!string.IsNullOrWhiteSpace(Syntax))
 					Console.WriteLine($"{new string(' ', specifierString.Length)}{padding}  [{specifierString.Replace(", ", "|")}] {Syntax}");
 			}
+
 			Console.WriteLine();
+			Exit(code);
+		}
+
+		static void Exit(int code)
+		{
 			Console.WriteLine("Press any key to exit.");
 			Console.ReadKey();
 
