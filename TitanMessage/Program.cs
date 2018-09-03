@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 
+using Newtonsoft.Json.Linq;
+
 namespace TitanMessage
 {
 	class Program
@@ -18,6 +20,7 @@ namespace TitanMessage
 			{ ("overwrite", "o", "Allow overwriting of existing files", null, (arg) => { overwriteExistingFiles = true; }) },
 			{ ("ignore", "i", "Ignore untranslated files on binary creation", null, (arg) => { ignoreUntranslatedFiles = true; }) },
 			{ ("unattended", "u", "Run unattended, i.e. don't wait for key on exit", null, (arg) => { runUnattended = true; }) },
+			{ ("characters", "c", "Load character overrides", "[override JSON path]", ArgumentHandlerCharaOverrides) },
 		};
 
 		static bool overwriteExistingFiles = false;
@@ -173,6 +176,18 @@ namespace TitanMessage
 					}
 				}
 			}
+		}
+
+		static void ArgumentHandlerCharaOverrides(string[] args)
+		{
+			if (args.Length != 2) throw new Exception($"Invalid number of arguments for {args[0]}");
+
+			var jsonObject = JObject.Parse(File.ReadAllText(args[1]));
+			var charaOverrides = jsonObject["CharacterOverrides"].ToObject<Dictionary<char, char>>();
+
+			Console.WriteLine($"[*] Loading {charaOverrides.Count} character override{((charaOverrides.Count == 1) ? "" : "s")}...");
+
+			TextHelper.SetCharacterOverrides(charaOverrides);
 		}
 
 		/* Slightly modified from https://stackoverflow.com/a/4423615 */

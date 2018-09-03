@@ -36,6 +36,9 @@ namespace TitanMessage
 		};
 		readonly static Dictionary<char, char> asciiToShiftJis = shiftJisToAscii.ToDictionary(x => x.Value, x => x.Key);
 
+		readonly static Dictionary<char, char> shiftJisCharacterOverrides = new Dictionary<char, char>();
+		static Dictionary<char, char> asciiCharacterOverrides { get => shiftJisCharacterOverrides.ToDictionary(x => x.Value, y => y.Key); }
+
 		readonly static Dictionary<ushort, Func<byte[], int, (string Output, int Index)>> controlCodeHandlers = new Dictionary<ushort, Func<byte[], int, (string Output, int Index)>>()
 		{
 			{ 0xF804, (b, i) => { return ControlCodeOneArgument(b, i, "Color"); } },
@@ -76,6 +79,12 @@ namespace TitanMessage
 			{ "Variable4", 0xF851 }
 		};
 
+		public static void SetCharacterOverrides(Dictionary<char, char> charaOverrides)
+		{
+			foreach (var charaOverride in charaOverrides)
+				shiftJisCharacterOverrides.Add(charaOverride.Key, charaOverride.Value);
+		}
+
 		public static string GetString(byte[] bytes)
 		{
 			var stringBuilder = new StringBuilder();
@@ -108,9 +117,13 @@ namespace TitanMessage
 				else
 				{
 					var shiftJisChar = shiftJisEncoding.GetChars(bytes, idx, 2).FirstOrDefault();
-					if ((false ? null : shiftJisToAscii).ContainsKey(shiftJisChar))
-						stringBuilder.Append((false ? null : shiftJisToAscii)[shiftJisChar]);
-					else stringBuilder.Append(shiftJisChar);
+
+					if (shiftJisCharacterOverrides.ContainsKey(shiftJisChar))
+						stringBuilder.Append(shiftJisCharacterOverrides[shiftJisChar]);
+					else if (shiftJisToAscii.ContainsKey(shiftJisChar))
+						stringBuilder.Append(shiftJisToAscii[shiftJisChar]);
+					else
+						stringBuilder.Append(shiftJisChar);
 				}
 			}
 
@@ -180,17 +193,16 @@ namespace TitanMessage
 
 		private static byte[] GetCharacterBytes(char chr)
 		{
-			var sjisBytes = shiftJisEncoding.GetBytes(new char[]
-			{
-				((false ? null: asciiToShiftJis).ContainsKey(chr) ? (false ? null: asciiToShiftJis)[chr] : chr)
-			});
+			char[] charArray;
 
-			// TODO still needed in 2018?   ----vvvv
+			if (asciiCharacterOverrides.ContainsKey(chr))
+				charArray = new[] { asciiCharacterOverrides[chr] };
+			else if (asciiToShiftJis.ContainsKey(chr))
+				charArray = new[] { asciiToShiftJis[chr] };
+			else
+				charArray = new[] { chr };
 
-			/* Dirty hack, replace with space! Required ex. when there's some garbage in Excel imports... */
-			//if (sjisBytes.Length == 1) sjisBytes = new byte[] { 0x81, 0x40 };
-
-			return sjisBytes;
+			return shiftJisEncoding.GetBytes(charArray);
 		}
 
 		private static int GetControlCodeLength(string str, int idx)
