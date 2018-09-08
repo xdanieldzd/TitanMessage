@@ -13,80 +13,32 @@ namespace TitanMessage
 	{
 		// --overwrite --json "D:\Translation\Etrian Odyssey 4 German\RomFS (Original EUR)\" "D:\Translation\Etrian Odyssey 4 German\JSON\" --binary "D:\Translation\Etrian Odyssey 4 German\JSON\" "D:\Translation\Etrian Odyssey 4 German\Generated Data\"
 
-		readonly static List<(string Long, string Short, string Description, string Syntax, Action<string[]> Method)> argumentHandlers = new List<(string Long, string Short, string Description, string Syntax, Action<string[]> Method)>()
+		readonly static List<ConsoleHelper.ArgumentHandler> argumentHandlers = new List<ConsoleHelper.ArgumentHandler>()
 		{
-			{ ("json", "j", "Convert binary files to JSON files", "[source path] [target path]", ArgumentHandlerBinaryToJson) },
-			{ ("binary", "b", "Convert JSON files to binary files", null, ArgumentHandlerJsonToBinary) },
-			{ ("overwrite", "o", "Allow overwriting of existing files", null, (arg) => { overwriteExistingFiles = true; }) },
-			{ ("ignore", "i", "Ignore untranslated files on binary creation", null, (arg) => { ignoreUntranslatedFiles = true; }) },
-			{ ("unattended", "u", "Run unattended, i.e. don't wait for key on exit", null, (arg) => { runUnattended = true; }) },
-			{ ("characters", "c", "Load character overrides", "[override JSON path]", ArgumentHandlerCharaOverrides) },
+			{ new ConsoleHelper.ArgumentHandler("json", "j", "Convert binary files to JSON files", "[source path] [target path]", ArgumentHandlerBinaryToJson) },
+			{ new ConsoleHelper.ArgumentHandler("binary", "b", "Convert JSON files to binary files", null, ArgumentHandlerJsonToBinary) },
+			{ new ConsoleHelper.ArgumentHandler("overwrite", "o", "Allow overwriting of existing files", null, (arg) => { overwriteExistingFiles = true; }) },
+			{ new ConsoleHelper.ArgumentHandler("ignore", "i", "Ignore untranslated files on binary creation", null, (arg) => { ignoreUntranslatedFiles = true; }) },
+			{ new ConsoleHelper.ArgumentHandler("unattended", "u", "Run unattended, i.e. don't wait for key on exit", null, (arg) => { verbose = false; }) },
+			{ new ConsoleHelper.ArgumentHandler("characters", "c", "Load character overrides", "[override JSON path]", ArgumentHandlerCharaOverrides) },
 		};
 
 		static bool overwriteExistingFiles = false;
 		static bool ignoreUntranslatedFiles = false;
-		static bool runUnattended = false;
+		static bool verbose = true;
 
-		static string applicationExecutable;
-
-		static void Main(string[] args)
+		static void Main()
 		{
-			Console.WriteLine("Titan's Message - Etrian Odyssey IV text converter");
-			Console.WriteLine("Written 2018 by xdaniel - https://github.com/xdanieldzd/");
-			Console.WriteLine();
+			ConsoleHelper.PrintApplicationInformation();
 
-			args = CommandLineTools.CreateArgs(Environment.CommandLine);
-			applicationExecutable = Path.GetFileName(args[0]);
-
-			if (args.Length <= 1)
+			var args = ConsoleHelper.GetAndVerifyArguments(1, () =>
 			{
 				Console.WriteLine("No arguments specified!");
 				Console.WriteLine();
-				PrintUsageAndExit(-1);
-			}
+				ConsoleHelper.PrintUsageAndExit(argumentHandlers, -1);
+			});
 
-			System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
-			stopwatch.Start();
-
-			try
-			{
-				foreach (var argGroup in ParseArguments(args))
-				{
-					argumentHandlers.FirstOrDefault(x => x.Long == argGroup[0] || x.Short == argGroup[0]).Method?.Invoke(argGroup);
-				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Exception occured: {ex.Message}");
-				Console.WriteLine();
-				Exit(-1);
-			}
-			finally
-			{
-				if (!runUnattended)
-				{
-					Console.WriteLine();
-					Console.WriteLine("Operation completed in {0}.", GetReadableTimespan(stopwatch.Elapsed));
-					Console.WriteLine();
-					Exit(0);
-				}
-			}
-		}
-
-		static List<string[]> ParseArguments(string[] args)
-		{
-			var argGroups = new List<string[]>();
-			for (int argIdx = 1; argIdx < args.Length; argIdx++)
-			{
-				if (args[argIdx].StartsWith("-"))
-				{
-					var argGroup = new List<string> { args[argIdx].TrimStart('-') };
-					argGroup.AddRange(args.Skip(argIdx + 1).TakeWhile(x => !x.StartsWith("-")));
-					argGroups.Add(argGroup.ToArray());
-					argIdx += (argGroup.Count - 1);
-				}
-			}
-			return argGroups;
+			ConsoleHelper.ExecuteArguments(args, argumentHandlers, ref verbose);
 		}
 
 		static string GetRelativePath(FileInfo sourceFile, DirectoryInfo sourceRoot)
@@ -188,48 +140,6 @@ namespace TitanMessage
 			Console.WriteLine($"[*] Loading {charaOverrides.Count} character override{((charaOverrides.Count == 1) ? "" : "s")}...");
 
 			TextHelper.SetCharacterOverrides(charaOverrides);
-		}
-
-		/* Slightly modified from https://stackoverflow.com/a/4423615 */
-		static string GetReadableTimespan(TimeSpan span)
-		{
-			string formatted = string.Format("{0}{1}{2}{3}{4}",
-			span.Duration().Days > 0 ? string.Format("{0:0} day{1}, ", span.Days, span.Days == 1 ? string.Empty : "s") : string.Empty,
-			span.Duration().Hours > 0 ? string.Format("{0:0} hour{1}, ", span.Hours, span.Hours == 1 ? string.Empty : "s") : string.Empty,
-			span.Duration().Minutes > 0 ? string.Format("{0:0} minute{1}, ", span.Minutes, span.Minutes == 1 ? string.Empty : "s") : string.Empty,
-			span.Duration().Seconds > 0 ? string.Format("{0:0} second{1}, ", span.Seconds, span.Seconds == 1 ? string.Empty : "s") : string.Empty,
-			span.Duration().Milliseconds > 0 ? string.Format("{0:0} millisecond{1}", span.Milliseconds, span.Milliseconds == 1 ? string.Empty : "s") : string.Empty);
-			if (formatted.EndsWith(", ")) formatted = formatted.Substring(0, formatted.Length - 2);
-			if (string.IsNullOrEmpty(formatted)) formatted = "0 seconds";
-			return formatted;
-		}
-
-		static void PrintUsageAndExit(int code)
-		{
-			Console.WriteLine($"Usage: {applicationExecutable} [options]...");
-			Console.WriteLine();
-			Console.WriteLine("Options:");
-
-			var maxSpecifierLength = argumentHandlers.Select(x => $" {x.Short}{(x.Long != string.Empty ? "," : " ")} {x.Long}").Max(x => x.Length);
-			foreach (var (Long, Short, Description, Syntax, _) in argumentHandlers)
-			{
-				var specifierString = $"{Short}{(Long != string.Empty ? "," : " ")} {Long}";
-				var padding = string.Empty.PadRight((maxSpecifierLength + 3) - specifierString.Length, ' ');
-				Console.WriteLine($" {specifierString}{padding}{Description}");
-				if (!string.IsNullOrWhiteSpace(Syntax))
-					Console.WriteLine($"{new string(' ', specifierString.Length)}{padding}  [{specifierString.Replace(", ", "|")}] {Syntax}");
-			}
-
-			Console.WriteLine();
-			Exit(code);
-		}
-
-		static void Exit(int code)
-		{
-			Console.WriteLine("Press any key to exit.");
-			Console.ReadKey();
-
-			Environment.Exit(code);
 		}
 	}
 }
