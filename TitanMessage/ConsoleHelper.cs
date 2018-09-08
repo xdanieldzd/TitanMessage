@@ -7,7 +7,7 @@ using System.Reflection;
 using System.IO;
 using System.Diagnostics;
 
-namespace TitanMessage
+namespace TitanTools
 {
 	public static class ConsoleHelper
 	{

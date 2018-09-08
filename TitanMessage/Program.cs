@@ -7,6 +7,8 @@ using System.IO;
 
 using Newtonsoft.Json.Linq;
 
+using TitanTools;
+
 namespace TitanMessage
 {
 	class Program

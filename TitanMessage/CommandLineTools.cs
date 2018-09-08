@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace TitanMessage
+namespace TitanTools
 {
 	/* http://sleepingbits.com/2010/01/command-line-arguments-with-double-quotes-in-net/ */
 	public class CommandLineTools
