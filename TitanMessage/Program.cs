@@ -13,8 +13,6 @@ namespace TitanMessage
 {
 	class Program
 	{
-		// --overwrite --json "D:\Translation\Etrian Odyssey 4 German\RomFS (Original EUR)\" "D:\Translation\Etrian Odyssey 4 German\JSON\" --binary "D:\Translation\Etrian Odyssey 4 German\JSON\" "D:\Translation\Etrian Odyssey 4 German\Generated Data\"
-
 		readonly static List<ConsoleHelper.ArgumentHandler> argumentHandlers = new List<ConsoleHelper.ArgumentHandler>()
 		{
 			{ new ConsoleHelper.ArgumentHandler("json", "j", "Convert binary files to JSON files", "[source path] [target path]", ArgumentHandlerBinaryToJson) },
@@ -68,8 +66,12 @@ namespace TitanMessage
 
 			// Special cases: include only known valid TBLs, exclude known incompatible leftovers (TestData folder, EO3 seafaring, etc...)
 			var binaryFiles = sourceRoot.EnumerateFiles("*", SearchOption.AllDirectories)
-				.Where(x => (x.Extension == ".tbl" && (x.Name.EndsWith("nametable.tbl") || x.Name == "skyitemname.tbl")) || x.Extension == ".mbm")
+				.Where(x => (x.Extension == ".tbl" && (x.Name.EndsWith("nametable.tbl") || x.Name == "skyitemname.tbl" || x.Name == "HiddenTreasureName.tbl")) || x.Extension == ".mbm")
 				.Where(x => !x.DirectoryName.Contains("TestData") && !x.Name.StartsWith("sea") && !x.Name.StartsWith("FacilityEntranceText"));
+
+			/* TODOs:	Dungeon\floor_name.tbl -- fixed string lengths? (0x48 bytes SJIS text + 0x04 bytes unknown ID?)
+			 *			Event\npc_char.tbl -- has NPC names (Kirjonen, Wiglaf, etc), probably not needed?
+			 */
 
 			foreach (var binaryFile in binaryFiles)
 			{
